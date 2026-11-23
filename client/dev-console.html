@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<!--
+  client/dev-console.html
+  A developer tool for testing the server (Student 1). NOT the real chat UI (that is Student 2's index.html).
+  Open http://<laptop-ip>:3000/dev-console.html on a phone or browser, log in, send messages,
+  and see every raw JSON message the server sends back.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev console</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 12px; }
+    input, button { font-size: 16px; padding: 6px; margin: 2px 0; }
+    input { width: 100%; box-sizing: border-box; }
+    #log { white-space: pre-wrap; font: 12px monospace; background: #f4f4f4; padding: 8px; height: 45vh; overflow-y: auto; }
+    .out { color: #0645ad; } .in { color: #186a1a; } .info { color: #888; }
+  </style>
+</head>
+<body>
+  <h3>Dev console <small id="status">(connecting…)</small></h3>
+
+  <input id="username" placeholder="username">
+  <input id="password" placeholder="password (6+ chars)" type="password">
+  <button id="register">Register</button>
+  <button id="login">Login</button>
+
+  <input id="to" placeholder="send to (username)">
+  <input id="text" placeholder="message text">
+  <button id="send">Send chat</button>
+  <button id="dup">Send same id again (duplicate test)</button>
+
+  <div id="log"></div>
+
+  <script>
+    // Connect back to whatever address this page was loaded from (never a hard-coded IP).
+    const ws = new WebSocket(`ws://${location.host}`);
+    const $ = (id) => document.getElementById(id);
+    let lastSeq = 0;
+    let lastChat = null;
+
+    function log(text, cls) {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = text; // textContent, never innerHTML: shows text safely
+      $('log').prepend(line);
+    }
+
+    function send(obj) {
+      ws.send(JSON.stringify(obj));
+      log('→ ' + JSON.stringify(obj), 'out');
+    }
+
+    // id format from docs/protocol.md: <username>-<timestamp>-<random 6 chars>
+    function makeId() {
+      return `${$('username').value}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    ws.onopen = () => { $('status').textContent = '(connected)'; };
+    ws.onclose = () => { $('status').textContent = '(disconnected — reload)'; };
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.seq) lastSeq = Math.max(lastSeq, msg.seq);
+      if (msg.type === 'history') msg.messages.forEach((m) => { lastSeq = Math.max(lastSeq, m.seq); });
+      log('← ' + event.data, 'in');
+    };
+
+    const credentials = () => ({ username: $('username').value, password: $('password').value });
+    $('register').onclick = () => send({ type: 'register', ...credentials() });
+    $('login').onclick = () => send({ type: 'login', ...credentials(), lastSeq });
+    $('send').onclick = () => {
+      lastChat = { type: 'chat', id: makeId(), to: $('to').value, text: $('text').value, sentAt: Date.now() };
+      send(lastChat);
+    };
+    $('dup').onclick = () => lastChat ? send(lastChat) : log('Send a chat first', 'info');
+  </script>
+</body>
+</html>

@@ -1,25 +1,34 @@
 // server/index.js
-// Step 2: a minimal test server, to check that phones on the hotspot can reach the laptop.
-const http = require('http'); // Node's built-in web server module
-const os = require('os');     // used to find the laptop's IP addresses
+// Entry point: starts one HTTP server that
+//   1. serves the client web page (files in /client) to the phones, and
+//   2. carries the WebSocket connections (Protocol A) on the same port.
+// Run with:  npm start   (or: node server/index.js)
 
-const PORT = 3000;
+const http = require('http');
+const os = require('os');
+const path = require('path');
+const express = require('express');
+const { attachWebSocketServer } = require('./websocket');
 
-// Every phone that opens the address gets this small page
-const server = http.createServer((req, res) => {
-  console.log(`Request from ${req.socket.remoteAddress}`);
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <h1>It works! 🎉</h1>
-    <p>This page came from the laptop server.</p>
-  `);
-});
+const PORT = process.env.PORT || 3000;
 
-// '0.0.0.0' = accept connections from other devices, not just this laptop
+// ---- HTTP: serve the client files ----
+const app = express();
+app.use(express.static(path.join(__dirname, '..', 'client')));
+
+// Express and the WebSocket server share this one HTTP server (one port, one firewall rule).
+const server = http.createServer(app);
+attachWebSocketServer(server);
+
+// '0.0.0.0' = accept connections from any network interface (so phones on the hotspot can connect),
+// not just from this laptop ('localhost').
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  // Print the laptop's IP addresses, so you know what to type on the phones
+  printAddresses();
+});
+
+// Print the laptop's IPv4 addresses so we know what to open on the phones.
+function printAddresses() {
   for (const list of Object.values(os.networkInterfaces())) {
     for (const net of list) {
       if (net.family === 'IPv4' && !net.internal) {
@@ -27,4 +36,4 @@ server.listen(PORT, '0.0.0.0', () => {
       }
     }
   }
-});
+}
