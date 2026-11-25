@@ -30,7 +30,7 @@ Each chat message has two identifiers:
 
 **`id` format:** `<username>-<timestamp ms>-<random 6 chars>`, e.g. `khaled-1732370000000-a8f3k2`.
 
-> Do not use `crypto.randomUUID()` in the client: browsers only allow it on HTTPS or localhost,
+> Do not use `crypto.randomUUID()` in the client: browsers only allow it on HTTPS,
 > and our phones load the page over plain HTTP.
 
 ### Rules
