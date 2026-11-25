@@ -7,12 +7,14 @@ Every member builds on it. **Changes go through Student 1** and must be updated 
 
 ## 1. Basics
 
-- **Transport:** WebSocket, on the same port as the web page (`ws://<laptop-ip>:3000`).
+- **Server:** written in Java. The web page is served over HTTP on port **3000**
+  (`http://<laptop-ip>:3000`), and the chat WebSocket runs on port **3001** (`ws://<laptop-ip>:3001`).
+  Clients build the WebSocket address from the page's own address: `ws://${location.hostname}:3001`.
 - **Encoding:** every message is one JSON object, sent as one WebSocket text frame.
 - **Framing:** handled by WebSocket. One frame = one message, so no extra delimiters are needed.
 - **Every message has a `type` field.** The other fields depend on the type.
 - **Connection health:** the server sends WebSocket-level ping frames every 10 seconds.
-  Browsers answer automatically. A client that misses 2 pings in a row is disconnected.
+  Browsers answer automatically. A client that has not answered for about 15 seconds is disconnected.
   These pings are not JSON messages and need no client code.
 
 ---
@@ -160,7 +162,7 @@ Sent to everyone when a user comes online or goes offline.
 - **Username:** 3–20 characters, letters, digits and `_` only. Case-insensitive.
 - **Password:** at least 6 characters. Stored hashed (bcrypt), never in plain text.
 - **Text:** 1–2000 characters. The client must display it as text, never as HTML (prevents injected code).
-- **Frame size:** maximum 16 KB. Larger frames are rejected.
+- **Message size:** maximum 16 KB. Larger messages get an `error` reply.
 - Any message except `register`/`login` sent before logging in gets `NOT_LOGGED_IN`.
 - Invalid messages get an `error` reply. They never crash the server or affect other clients.
 
@@ -186,7 +188,7 @@ is already stored, so it only re-sends the ack. Omar never gets a duplicate.
 
 ## 7. Protocol B (HTTP + Server-Sent Events)
 
-Protocol B uses **the same JSON messages** with a different transport:
+Protocol B uses **the same JSON messages** with a different transport, on the HTTP port (3000):
 
 - **Client → server:** `POST /api/send` with one JSON message as the body. The response body is the reply (`ack`, `auth_ok`, `error`…).
 - **Server → client:** `GET /api/events` opens a Server-Sent Events stream. Each event's `data` is one JSON message.

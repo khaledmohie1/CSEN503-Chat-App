@@ -34,8 +34,9 @@
   <div id="log"></div>
 
   <script>
-    // Connect back to whatever address this page was loaded from (never a hard-coded IP).
-    const ws = new WebSocket(`ws://${location.host}`);
+    // Connect back to the laptop this page was loaded from (never a hard-coded IP).
+    // The page comes from port 3000 (HTTP); the chat WebSocket is on port 3001.
+    const ws = new WebSocket(`ws://${location.hostname}:3001`);
     const $ = (id) => document.getElementById(id);
     let lastSeq = 0;
     let lastChat = null;
