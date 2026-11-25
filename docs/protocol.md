@@ -26,7 +26,7 @@ Each chat message has two identifiers:
 | Field | Created by | Purpose |
 |---|---|---|
 | `id` | Sender's client | Unique message id. Used to detect duplicates and match acks. |
-| `seq` | Server | Increasing number given when the server stores the message. Used for ordering and offline sync. |
+| `seq` | Server | Increasing number given when the server stores the message. Used for ordering and for catching up on missed messages at login. |
 
 **`id` format:** `<username>-<timestamp ms>-<random 6 chars>`, e.g. `khaled-1732370000000-a8f3k2`.
 
@@ -35,11 +35,13 @@ Each chat message has two identifiers:
 
 ### Rules
 1. **Sender** keeps every sent chat message in a "pending" list until the server sends an `ack` for its `id`.
-2. **No ack within 3 seconds:** the sender resends the same message (same `id`). Up to 5 tries, then it is marked "failed" in the UI.
-3. **On reconnect:** the sender resends everything still pending.
-4. **Server** checks the `id`. If it has already stored it, it does **not** store or forward it again; it only re-sends the `ack` with the original `seq`.
+2. **No ack within 3 seconds while connected:** the sender resends the same message (same `id`). After 5 tries it is marked "failed" in the UI.
+3. **While disconnected:** pending messages wait (no tries are counted). On reconnect, the sender resends everything still pending, and the try counter starts again.
+4. **Server** checks the `id`.
+   - **New `id`:** it stores the message with the next `seq`, sends the `ack`, and delivers it.
+   - **Already stored:** it does **not** store or forward it again; it only re-sends the `ack` with the original `seq`.
 5. **Receiver** ignores any message whose `id` it has already shown.
-6. **Offline sync:** each client remembers the highest `seq` it has received (`lastSeq`) and sends it on login or `sync`. The server replies with every message for that user with a higher `seq`.
+6. **Offline sync:** each client remembers the highest `seq` it has received (`lastSeq`) and sends it on login. The server replies with every message for that user with a higher `seq`.
 
 ---
 
@@ -64,19 +66,14 @@ Create a new account. On success the user is also logged in.
 
 ### `group_create`
 ```json
-{ "type": "group_create", "name": "Project team", "members": ["omar", "sara", "ali"] }
+{ "type": "group_create", "id": "khaled-1732370004000-q7w2e9", "name": "Project team", "members": ["omar", "sara", "ali"] }
 ```
-The creator is added automatically.
+The creator is added automatically. The server gives the group its `groupId`.
+If the same `id` arrives twice, the group is created only once.
 
 ### `group_chat`
 ```json
 { "type": "group_chat", "id": "khaled-1732370005000-p2m9x1", "groupId": 3, "text": "meeting at 5", "sentAt": 1732370005000 }
-```
-
-### `sync`
-Ask for missed messages without logging in again.
-```json
-{ "type": "sync", "lastSeq": 57 }
 ```
 
 ### `logout`
@@ -129,7 +126,7 @@ Sent to every member when a group is created.
 ```
 
 ### `history`
-Missed messages, sent after `login` or `sync`, ordered by `seq`.
+Missed messages, sent after `login`, ordered by `seq`.
 ```json
 { "type": "history", "messages": [ { "type": "chat", "id": "...", "seq": 43, "...": "..." } ] }
 ```

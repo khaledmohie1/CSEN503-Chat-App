@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  *   <li>validate every incoming message (bad input never crashes the server)</li>
  *   <li>store chat messages, ack them, and deliver them to the recipient</li>
  *   <li>prevent duplicates (the same id is stored and forwarded only once)</li>
- *   <li>send missed messages on login/sync (offline sync with lastSeq)</li>
+ *   <li>send missed messages on login (offline sync with lastSeq)</li>
  *   <li>detect dead connections (heartbeat) and handle disconnects without affecting others</li>
  * </ul>
  *
@@ -162,7 +162,6 @@ public final class ChatServer extends WebSocketServer {
             case "register" -> handleRegister(conn, msg);
             case "login" -> handleLogin(conn, msg);
             case "chat" -> handleChat(conn, msg);
-            case "sync" -> sendHistory(conn, readLastSeq(msg));
             case "logout" -> handleLogout(conn);
             // Group chat is added by Student 2.
             case "group_create", "group_chat" ->
